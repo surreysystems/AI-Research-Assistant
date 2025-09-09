@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Perspective, ResearchData, Source, ResearchStage } from './types';
 import { generatePerspectivesAndQuestions, researchQuestion, generateOutline, generateArticle } from './services/geminiService';
@@ -42,7 +41,8 @@ const App: React.FC = () => {
             return;
         }
         
-        handleReset(); // Reset all state for a fresh start. This will clear the input field.
+        handleReset(); // Reset all state for a fresh start.
+        setInputTopic(currentTopic); // Restore the input topic so it's visible during research.
         setTopic(currentTopic); // Set the topic for the new research session.
         setResearchStage('GENERATING_QUESTIONS');
         setError(null);
@@ -59,11 +59,6 @@ const App: React.FC = () => {
     }, [inputTopic]);
 
     const researchNextQuestion = useCallback(async () => {
-        if (currentResearchIndex >= allQuestions.length) {
-            setResearchStage('GENERATING_OUTLINE');
-            return;
-        }
-
         const question = allQuestions[currentResearchIndex];
         try {
             const result = await researchQuestion(question);
@@ -84,11 +79,18 @@ const App: React.FC = () => {
     }, [allQuestions, currentResearchIndex]);
 
     useEffect(() => {
-        if (researchStage === 'RESEARCHING' && perspectives.length > 0 && currentResearchIndex < allQuestions.length) {
-            researchNextQuestion();
+        // This effect orchestrates the research stage.
+        if (researchStage === 'RESEARCHING' && perspectives.length > 0) {
+            if (currentResearchIndex < allQuestions.length) {
+                // We still have questions to research.
+                researchNextQuestion();
+            } else if (allQuestions.length > 0) {
+                // We have finished researching all questions, move to the next stage.
+                setResearchStage('GENERATING_OUTLINE');
+            }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [researchStage, perspectives, currentResearchIndex, researchNextQuestion]);
+    }, [researchStage, perspectives, currentResearchIndex]);
     
     useEffect(() => {
         const processResearch = async () => {
