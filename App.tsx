@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Perspective, ResearchData, Source, ResearchStage } from './types';
+import type { Perspective, ResearchData, Source, ResearchStage, HistoryItem } from './types';
 import { generatePerspectivesAndQuestions, researchQuestion, generateOutline, generateArticle } from './services/geminiService';
+import * as historyService from './services/historyService';
 import StatusBar from './components/StatusBar';
 import LoadingSpinner from './components/LoadingSpinner';
 import ArticleDisplay from './components/ArticleDisplay';
-import { StormIcon } from './components/icons';
+import HistoryPanel from './components/HistoryPanel';
+import { StormIcon, HistoryIcon } from './components/icons';
 
 const App: React.FC = () => {
     const [topic, setTopic] = useState<string>('');
@@ -17,9 +19,15 @@ const App: React.FC = () => {
     const [sources, setSources] = useState<Source[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [currentResearchIndex, setCurrentResearchIndex] = useState(0);
+    const [history, setHistory] = useState<HistoryItem[]>([]);
+    const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
 
     const allQuestions = perspectives.flatMap(p => p.questions);
     const isResearching = researchStage !== 'IDLE' && researchStage !== 'DONE';
+
+    useEffect(() => {
+        setHistory(historyService.getHistory());
+    }, []);
 
     const handleReset = () => {
         setTopic('');
@@ -35,15 +43,15 @@ const App: React.FC = () => {
     };
 
     const startResearch = useCallback(async () => {
-        const currentTopic = inputTopic; // Capture topic before any state changes
+        const currentTopic = inputTopic;
         if (!currentTopic.trim()) {
             setError('Please enter a topic.');
             return;
         }
         
-        handleReset(); // Reset all state for a fresh start.
-        setInputTopic(currentTopic); // Restore the input topic so it's visible during research.
-        setTopic(currentTopic); // Set the topic for the new research session.
+        handleReset();
+        setInputTopic(currentTopic);
+        setTopic(currentTopic);
         setResearchStage('GENERATING_QUESTIONS');
         setError(null);
 
@@ -73,25 +81,33 @@ const App: React.FC = () => {
         } catch (e) {
             console.error(e);
             setError(`Failed to research question: "${question}". Skipping.`);
-            // Skip to next question even on error to not block the process
             setCurrentResearchIndex(prev => prev + 1);
         }
     }, [allQuestions, currentResearchIndex]);
 
     useEffect(() => {
-        // This effect orchestrates the research stage.
         if (researchStage === 'RESEARCHING' && perspectives.length > 0) {
             if (currentResearchIndex < allQuestions.length) {
-                // We still have questions to research.
                 researchNextQuestion();
             } else if (allQuestions.length > 0) {
-                // We have finished researching all questions, move to the next stage.
                 setResearchStage('GENERATING_OUTLINE');
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [researchStage, perspectives, currentResearchIndex]);
     
+    const handleSaveResearch = useCallback((newArticle: string, newSources: Source[]) => {
+        const newHistoryItem: HistoryItem = {
+            id: Date.now().toString(),
+            topic: topic,
+            article: newArticle,
+            sources: newSources,
+            timestamp: new Date().toISOString(),
+        };
+        const updatedHistory = historyService.saveResearch(newHistoryItem);
+        setHistory(updatedHistory);
+    }, [topic]);
+
     useEffect(() => {
         const processResearch = async () => {
             if (researchStage === 'GENERATING_OUTLINE') {
@@ -102,12 +118,14 @@ const App: React.FC = () => {
                 } catch (e) {
                     console.error(e);
                     setError('Failed to generate the article outline.');
-                    setResearchStage('DONE'); // End process on failure
+                    setResearchStage('DONE');
                 }
             } else if (researchStage === 'GENERATING_ARTICLE') {
                 try {
                     const generatedArticle = await generateArticle(topic, outline, researchData);
                     setArticle(generatedArticle);
+                    // The sources are already being collected during the research phase and stored in `sources` state
+                    handleSaveResearch(generatedArticle, sources);
                     setResearchStage('DONE');
                 } catch (e) {
                     console.error(e);
@@ -117,24 +135,62 @@ const App: React.FC = () => {
             }
         };
         processResearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [researchStage, researchData, outline, topic]);
+
+    const handleViewHistoryItem = (item: HistoryItem) => {
+        handleReset();
+        setTopic(item.topic);
+        setArticle(item.article);
+        setSources(item.sources);
+        setResearchStage('DONE');
+        setIsHistoryPanelOpen(false);
+    };
+
+    const handleDeleteHistoryItem = (id: string) => {
+        const updatedHistory = historyService.deleteHistoryItem(id);
+        setHistory(updatedHistory);
+    };
+
+    const handleClearHistory = () => {
+        historyService.clearHistory();
+        setHistory([]);
+    };
 
     return (
         <div className="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
-            <header className="bg-white shadow-sm sticky top-0 z-10">
+            <HistoryPanel 
+                isOpen={isHistoryPanelOpen}
+                onClose={() => setIsHistoryPanelOpen(false)}
+                history={history}
+                onView={handleViewHistoryItem}
+                onDelete={handleDeleteHistoryItem}
+                onClearAll={handleClearHistory}
+            />
+            <header className="bg-white shadow-sm sticky top-0 z-20">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
                     <div className="flex items-center space-x-3">
                         <StormIcon className="h-8 w-8 text-blue-600" />
                         <h1 className="text-2xl font-bold text-slate-900">AI Research Assistant</h1>
                     </div>
-                    {researchStage !== 'IDLE' && (
-                        <button
-                            onClick={handleReset}
-                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
+                     <div className="flex items-center gap-2">
+                         <button
+                            onClick={() => setIsHistoryPanelOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
+                            aria-label="View research history"
                         >
-                            New Research
+                            <HistoryIcon className="h-5 w-5" />
+                            <span>History</span>
                         </button>
-                    )}
+                        {researchStage !== 'IDLE' && (
+                            <button
+                                onClick={handleReset}
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                                New Research
+                            </button>
+                        )}
+                    </div>
                 </div>
             </header>
 

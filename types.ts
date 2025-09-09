@@ -1,4 +1,3 @@
-
 export interface Perspective {
     perspective: string;
     questions: string[];
@@ -26,3 +25,11 @@ export type ResearchStage =
     | 'GENERATING_OUTLINE' 
     | 'GENERATING_ARTICLE' 
     | 'DONE';
+
+export interface HistoryItem {
+    id: string;
+    topic: string;
+    article: string;
+    sources: Source[];
+    timestamp: string;
+}
