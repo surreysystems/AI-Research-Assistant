@@ -33,3 +33,6 @@ export interface HistoryItem {
     sources: Source[];
     timestamp: string;
 }
+
+export type RewriteStyle = 'New Scientist' | 'Wired Magazine' | 'The Guardian';
+export type LanguageVariant = 'British English' | 'International English';

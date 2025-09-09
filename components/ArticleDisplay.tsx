@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import type { Source } from '../types';
-import { DownloadIcon } from './icons';
+import type { Source, RewriteStyle, LanguageVariant } from '../types';
+import { DownloadIcon, RewriteIcon } from './icons';
 import LoadingSpinner from './LoadingSpinner';
 
 // Type definitions for libraries loaded from CDN
@@ -15,6 +15,10 @@ interface ArticleDisplayProps {
     article: string;
     sources: Source[];
     topic: string;
+    onRewrite: (style: RewriteStyle, language: LanguageVariant) => void;
+    onRevert: () => void;
+    isRewriting: boolean;
+    isRewritten: boolean;
 }
 
 // Simple markdown-to-html renderer
@@ -39,9 +43,11 @@ const renderMarkdown = (text: string) => {
 };
 
 
-const ArticleDisplay: React.FC<ArticleDisplayProps> = ({ article, sources, topic }) => {
+const ArticleDisplay: React.FC<ArticleDisplayProps> = ({ article, sources, topic, onRewrite, onRevert, isRewriting, isRewritten }) => {
     const [isExportingPdf, setIsExportingPdf] = useState(false);
     const articleRef = useRef<HTMLDivElement>(null);
+    const [rewriteStyle, setRewriteStyle] = useState<RewriteStyle>('New Scientist');
+    const [languageVariant, setLanguageVariant] = useState<LanguageVariant>('International English');
     
     const generateFilename = (extension: 'md' | 'pdf') => {
         const sanitizedTopic = topic.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
@@ -115,7 +121,7 @@ const ArticleDisplay: React.FC<ArticleDisplayProps> = ({ article, sources, topic
 
     return (
         <div className="bg-white p-8 rounded-lg shadow-md">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 border-b pb-4 gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 border-b pb-4 gap-4">
                 <h2 className="text-3xl font-bold text-slate-900 flex-shrink-0">Generated Article</h2>
                 <div className="flex gap-2 flex-shrink-0">
                     <button 
@@ -135,6 +141,59 @@ const ArticleDisplay: React.FC<ArticleDisplayProps> = ({ article, sources, topic
                     </button>
                 </div>
             </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 my-6">
+                <h4 className="font-semibold text-slate-800 mb-3">Rewrite Article</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="rewrite-style" className="block text-sm font-medium text-slate-600 mb-1">Style</label>
+                        <select
+                            id="rewrite-style"
+                            value={rewriteStyle}
+                            onChange={(e) => setRewriteStyle(e.target.value as RewriteStyle)}
+                            className="w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                            disabled={isRewriting}
+                        >
+                            <option>New Scientist</option>
+                            <option>Wired Magazine</option>
+                            <option>The Guardian</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="language-variant" className="block text-sm font-medium text-slate-600 mb-1">Language</label>
+                        <select
+                            id="language-variant"
+                            value={languageVariant}
+                            onChange={(e) => setLanguageVariant(e.target.value as LanguageVariant)}
+                            className="w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                            disabled={isRewriting}
+                        >
+                            <option>International English</option>
+                            <option>British English</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="mt-4 flex items-center gap-4">
+                    <button
+                        onClick={() => onRewrite(rewriteStyle, languageVariant)}
+                        disabled={isRewriting}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {isRewriting ? <LoadingSpinner /> : <RewriteIcon className="h-5 w-5" />}
+                        <span>{isRewriting ? 'Rewriting...' : 'Rewrite'}</span>
+                    </button>
+                    {isRewritten && (
+                        <button
+                            onClick={onRevert}
+                            disabled={isRewriting}
+                            className="text-sm font-medium text-slate-600 hover:text-slate-900 disabled:text-slate-400 disabled:cursor-not-allowed"
+                        >
+                            Revert to Original
+                        </button>
+                    )}
+                </div>
+            </div>
+
 
             <div ref={articleRef}>
                 <div className="prose prose-slate max-w-none">

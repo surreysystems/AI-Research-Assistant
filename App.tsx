@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Perspective, ResearchData, Source, ResearchStage, HistoryItem } from './types';
-import { generatePerspectivesAndQuestions, researchQuestion, generateOutline, generateArticle } from './services/geminiService';
+import type { Perspective, ResearchData, Source, ResearchStage, HistoryItem, RewriteStyle, LanguageVariant } from './types';
+import { generatePerspectivesAndQuestions, researchQuestion, generateOutline, generateArticle, rewriteArticle } from './services/geminiService';
 import * as historyService from './services/historyService';
 import StatusBar from './components/StatusBar';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -16,6 +16,8 @@ const App: React.FC = () => {
     const [researchData, setResearchData] = useState<ResearchData[]>([]);
     const [outline, setOutline] = useState<string>('');
     const [article, setArticle] = useState<string>('');
+    const [originalArticle, setOriginalArticle] = useState<string | null>(null);
+    const [isRewriting, setIsRewriting] = useState<boolean>(false);
     const [sources, setSources] = useState<Source[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [currentResearchIndex, setCurrentResearchIndex] = useState(0);
@@ -37,6 +39,8 @@ const App: React.FC = () => {
         setResearchData([]);
         setOutline('');
         setArticle('');
+        setOriginalArticle(null);
+        setIsRewriting(false);
         setSources([]);
         setError(null);
         setCurrentResearchIndex(0);
@@ -124,7 +128,7 @@ const App: React.FC = () => {
                 try {
                     const generatedArticle = await generateArticle(topic, outline, researchData);
                     setArticle(generatedArticle);
-                    // The sources are already being collected during the research phase and stored in `sources` state
+                    setOriginalArticle(generatedArticle);
                     handleSaveResearch(generatedArticle, sources);
                     setResearchStage('DONE');
                 } catch (e) {
@@ -142,6 +146,7 @@ const App: React.FC = () => {
         handleReset();
         setTopic(item.topic);
         setArticle(item.article);
+        setOriginalArticle(item.article);
         setSources(item.sources);
         setResearchStage('DONE');
         setIsHistoryPanelOpen(false);
@@ -155,6 +160,27 @@ const App: React.FC = () => {
     const handleClearHistory = () => {
         historyService.clearHistory();
         setHistory([]);
+    };
+
+    const handleRewriteArticle = async (style: RewriteStyle, language: LanguageVariant) => {
+        if (!originalArticle) return;
+        setIsRewriting(true);
+        setError(null);
+        try {
+            const rewritten = await rewriteArticle(originalArticle, style, language);
+            setArticle(rewritten);
+        } catch (e) {
+            console.error(e);
+            setError("Failed to rewrite the article. Please try again.");
+        } finally {
+            setIsRewriting(false);
+        }
+    };
+
+    const handleRevertArticle = () => {
+        if (originalArticle) {
+            setArticle(originalArticle);
+        }
     };
 
     return (
@@ -277,7 +303,15 @@ const App: React.FC = () => {
                             )}
                             
                             {article && (
-                               <ArticleDisplay article={article} sources={sources} topic={topic} />
+                               <ArticleDisplay
+                                 article={article}
+                                 sources={sources}
+                                 topic={topic}
+                                 onRewrite={handleRewriteArticle}
+                                 onRevert={handleRevertArticle}
+                                 isRewriting={isRewriting}
+                                 isRewritten={article !== originalArticle}
+                               />
                             )}
                             
                             {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p className="font-bold">An Error Occurred</p><p>{error}</p></div>}

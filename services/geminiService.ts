@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Perspective, ResearchData, ResearchResult, Source } from '../types';
+import type { Perspective, ResearchData, ResearchResult, Source, RewriteStyle, LanguageVariant } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
@@ -129,6 +129,31 @@ export const generateArticle = async (topic: string, outline: string, researchDa
         ${researchContext}
 
         Now, write the full article based on these instructions.
+    `;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+    });
+
+    return response.text;
+};
+
+export const rewriteArticle = async (article: string, style: RewriteStyle, language: LanguageVariant): Promise<string> => {
+    const prompt = `
+        You are an expert editor. Your task is to rewrite the following article.
+
+        **Instructions:**
+        1.  Adopt the writing style of **${style}**.
+        2.  Use **${language}**. For British English, use British spellings (e.g., 'colour', 'centre') and grammar.
+        3.  **Do not alter the factual content or meaning.**
+        4.  Preserve the original Markdown formatting for headings (e.g., '#', '##', '###').
+        5.  Ensure the tone is appropriate for the chosen publication.
+
+        **Article to Rewrite:**
+        ---
+        ${article}
+        ---
     `;
 
     const response = await ai.models.generateContent({

@@ -108,3 +108,14 @@ export const XIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
         <path d="m6 6 12 12" />
     </svg>
 );
+
+export const RewriteIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3 16.826a1 1 0 0 0 .42 1.581l3.172 1.586a1 1 0 0 0 1.581-.42Z" />
+      <path d="m15 5 3 3" />
+      <path d="M22 7h-3" />
+      <path d="M19 10V7" />
+      <path d="M14 15h2" />
+      <path d="M15 14v2" />
+    </svg>
+);
