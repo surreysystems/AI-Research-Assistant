@@ -1,0 +1,5 @@
+{
+  "name": "AI Research Assistant (STORM)",
+  "description": "An AI research assistant that emulates Stanford's STORM to research a topic and generate a comprehensive, Wikipedia-style article with citations. The process involves generating perspectives, asking questions, gathering information with citations, creating an outline, and drafting the final article.",
+  "requestFramePermissions": []
+}
